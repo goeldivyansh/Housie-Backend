@@ -1,21 +1,12 @@
+require('dotenv').config();
 const express = require("express");
 const router = express.Router();
 const db = require("../data/db.js");
-// const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const JWT_SECRET = "etwqcyig@#$e723trgfcjd323bfug*&^$3%261757vb";
 const ticket = require("./generateTicket.js");
 const { v4: uuidv4 } = require("uuid");
 const common = require("../common.js");
-// const e = require("express");
-// const REDIS_PORT = 6379;
-
-//Create and connect redis client
-// const client = redis.createClient(REDIS_PORT);
-// client.on("error", (err) => {
-//   console.log("Error " + err);
-// });
-// client.connect();
+const JWT_SECRET = process.env.JWT_SECRET;
 
 router.post("/", createRoom);
 
@@ -46,13 +37,13 @@ router.get("/all/:userId/any", findRoomsWithUserId); //type: host/player/any
 // router.get("rooms/all",getAllRooms);
 
 function createRoom(req, res) {
+  console.log("Entering createRoom");
   try {
     const { userId, token } = req.body;
 
     // Generate a roomId
     const createdTime = Date.now();
     const roomId = uuidv4();
-    console.log(roomId, userId, createdTime);
 
     //check valid token or not
     jwt.verify(token, JWT_SECRET, (err, decodedUserId) => {
@@ -66,10 +57,11 @@ function createRoom(req, res) {
         .then(() => {
           console.log("Room created: ", roomId, userId, createdTime);
           res
-            .status(201)
-            .json({ roomId: roomId, hostId: userId, createdTime: createdTime });
+          .status(201)
+          .json({ roomId: roomId, hostId: userId, createdTime: createdTime });
         })
         .catch((err) => {
+          console.log("createRoom | Err: ", err);
           res
             .status(400)
             .json({ error: err.message, message: "Internal error" });
@@ -81,12 +73,11 @@ function createRoom(req, res) {
 }
 
 function getRoom(req, res) {
+  console.log("Entering getRoom");
   try {
     let roomId = req.params.roomId;
     const { userId, token } = req.query;
-    // console.log("req : ", req);
-    console.log("req.body", req.body);
-    console.log("roomId-", roomId);
+
     //check valid token or not
     jwt.verify(token, JWT_SECRET, (err, decodedUserId) => {
       //If not valid
@@ -97,7 +88,6 @@ function getRoom(req, res) {
       //else valid insert record in table
       db.getRoom(roomId)
         .then((response) => {
-          console.log("Fetched Room: ", response);
           res
           .status(200)
           .json({ 
@@ -107,6 +97,7 @@ function getRoom(req, res) {
           });
         })
         .catch((err) => {
+          console.log("getRoom | Err: ", err);
           if(err.message ="Room not found") {
             res
             .status(404)
@@ -126,22 +117,17 @@ function getRoom(req, res) {
 
 function addBoard(req, res) {
   try {
-    console.log("Entering addBoard | req.body", req.body);
+    console.log("Entering addBoard");
     let roomId = req.params.roomId;
     let { hostId, token } = req.body;
-
-    console.log("roomId, ", roomId);
-    console.log("hostId, ", hostId);
-    console.log("token, ", token);
 
     //Verify User
     jwt.verify(token, JWT_SECRET, (err, decodedUserId) => {
       //If not valid
       if (err || decodedUserId != hostId) {
+        console.log("addBoard | err:", err);
         return res.status(401).json({ error: "Invalid Token" });
       }
-
-      //else valid, Generate board
 
       let boardObj = {
         pickedNumbers: [],
@@ -155,10 +141,7 @@ function addBoard(req, res) {
       // Insert board in roomsTable
       db.addBoardInRoom(board, hostId, roomId)
         .then(async () => {
-          //insert board in redis (cache)
-          // await client.set(roomId, board);
-
-          console.log("Board inserted...");
+          console.log("Board inserted successfully");
           res.status(201).json({
             roomId: roomId,
             board: board,
@@ -166,7 +149,7 @@ function addBoard(req, res) {
           });
         })
         .catch((err) => {
-          console.log("err: ", err.message);
+          console.log("addBoard | err:", err);
           res.status(400).json({
             error: err.message,
             message: "Board already present/DB error",
@@ -179,6 +162,7 @@ function addBoard(req, res) {
 }
 
 function updateOrResetBoard(req, res) {
+  console.log("Entering updateOrResetBoard");
   try {
     let roomId = req.params.roomId;
     let { hostId, token, board } = req.body;
@@ -201,19 +185,11 @@ function updateOrResetBoard(req, res) {
         }
         board = JSON.stringify(boardObj);
       }
-      // let board = {
-      //   pickedNumbers: [],
-      //   unPickedNumbers: [],
-      // };
 
-      // for (let i = 1; i <= 90; i++) board.unPickedNumbers.push(i);
-      console.log(board);
 
       // Insert board in roomsTable
       db.addOrUpdateOrResetBoard(board, hostId, roomId)
         .then(async () => {
-          // Reset board in redis
-          // await client.set(roomId, board);
           console.log("Board reset successful.");
           res.status(201).json({
             roomId: roomId,
@@ -222,7 +198,7 @@ function updateOrResetBoard(req, res) {
           });
         })
         .catch((err) => {
-          console.log("err: ", error.message);
+          console.log("updateOrResetBoard | err: ", err);
           res
             .status(400)
             .json({ error: err.message, message: "Internal error" });
@@ -234,6 +210,7 @@ function updateOrResetBoard(req, res) {
 }
 
 function generateNumber(req, res) {
+  console.log("Entering generateNumber");
   try {
     let roomId = req.params.roomId;
     let { hostId, token } = req.body;
@@ -247,21 +224,12 @@ function generateNumber(req, res) {
       //fetch board of roomId from redis
       let board;
       try {
-        //fetch board of roomId from redis
-        // board = await client.get(roomId);
-        // console.log("Board from redis: ", board);
-
-        //if board not present in redis then fetch it from db
-        if (!board) {
-          // console.log("in if");
-          board = await db.getBoard(roomId);
-        }
-
+        
+        board = await db.getBoard(roomId);
         let boardObj = JSON.parse(board);
 
         //if all numbers picked, return
         if (boardObj.unPickedNumbers.length === 0) {
-          console.log("boardStr:   -- ", board);
           //Update board in dynamodb
           await db.addOrUpdateOrResetBoard(board, hostId, roomId);
           return res.status(200).json({
@@ -275,21 +243,15 @@ function generateNumber(req, res) {
         boardObj.unPickedNumbers.splice(ind, 1);
         boardObj.pickedNumbers.push(currentNumber);
 
-        console.log("boardObj:   -- ", boardObj);
         // convert updated boardObj to board string.
         let boardStr = JSON.stringify(boardObj);
-
-        console.log("boardStr:   -- ", boardStr);
-        //update board in redis
-
-        // await client.set(roomId, boardStr);
 
         res.status(200).json({
           currentNumber: currentNumber,
           msg: "Number generated.",
         });
       } catch (err) {
-        console.log("Error : ", err.message);
+        console.log("generateNumber | Error : ", err);
         res
           .status(400)
           .json({ error: err.message, message: "Error in accessing board" });
@@ -301,10 +263,10 @@ function generateNumber(req, res) {
 }
 
 function addPlayerInRoom(req, res) {
+  console.log("Entering addPlayerInRoom");
   try {
     let roomId = req.params.roomId;
     let { hostId, playerId, token } = req.body;
-    console.log("addPlayerInRoom | req.body: ", req.body);
 
     //Verify User
     jwt.verify(token, JWT_SECRET, (err, decodedUserId) => {
@@ -326,7 +288,7 @@ function addPlayerInRoom(req, res) {
           });
         })
         .catch((err) => {
-          console.log("error: ", err.message);
+          console.log("addPlayerInRoom | Err: ", err);
           res.status(400).json({
             error: err.message,
             message: "Internal error: RoomId not found",
@@ -339,6 +301,7 @@ function addPlayerInRoom(req, res) {
 }
 
 function deleteTheRoom(req, res) {
+  console.log("Entering deleteRoom");
   try {
     let roomId = req.params.roomId;
     let { hostId, token } = req.body;
@@ -360,7 +323,7 @@ function deleteTheRoom(req, res) {
           });
         })
         .catch((err) => {
-          console.log("err: ", err.message);
+          console.log("deleteRoom | err: ", err);
           res
             .status(400)
             .json({ error: err.message, message: "Internal error" });
@@ -372,10 +335,10 @@ function deleteTheRoom(req, res) {
 }
 
 function createTicket(req, res) {
+  console.log("Entering createTicket");
   try {
     let roomId = req.params.roomId;
     let { playerId, token } = req.body;
-    console.log("roomId: ", roomId);
 
     //check valid token or not
     jwt.verify(token, JWT_SECRET, async (err, decodedUserId) => {
@@ -391,7 +354,6 @@ function createTicket(req, res) {
 
       //Find all the tickets of the room
       let tickets = await findAllTicketsInRoom(roomId); //tickets object
-      console.log("tickets: ", tickets, tickets.length);
       let ticketObj = {};
       // let isDuplicate = false;
       if (tickets.length === 0) {
@@ -416,7 +378,6 @@ function createTicket(req, res) {
       }
       ticketObj.ticketId = ticketId;
       let ticketString = JSON.stringify(ticketObj);
-      console.log("tstr: ", ticketString);
 
       // valid ticket (Unique), insert ticket in table
       db.createTicket(ticketId, playerId, ticketString, roomId)
@@ -439,10 +400,10 @@ function createTicket(req, res) {
 }
 
 function findAllPlayersInRoom(req, res) {
+  console.log("Entrinng findAllPlayersInRoom");
   try {
     let roomId = req.params.roomId;
     let { hostId, token } = req.body;
-    console.log('Entrinng findAllPlayersInRoom: hostId:', hostId);
 
     //Verify User
     jwt.verify(token, JWT_SECRET, async (err, decodedUserId) => {
@@ -453,7 +414,6 @@ function findAllPlayersInRoom(req, res) {
       try {
         db.findAllPlayersInRoom(roomId)
           .then((playersArray) => {
-            console.log("playersArray: ", playersArray);
             res.status(200).json({
               hostId: hostId,
               roomId: roomId,
@@ -473,6 +433,7 @@ function findAllPlayersInRoom(req, res) {
 }
 
 function findPlayersWithBegName(req, res) {
+  console.log("Entering findPlayersWithBegName");
   try {
     let roomId = req.params.roomId;
     let begName = req.params.begName;
@@ -513,13 +474,10 @@ function findPlayersWithBegName(req, res) {
 }
 
 function findRoomsWithHostId(req, res) {
+  console.log("Entering findRoomsWithHostId");
   try {
     let hostId = req.params.hostId;
-    // let { token } = req.body;
     let { token } = req.query;
-    // console.log("req.query: ", req.query);
-    // console.log("hostID: ", hostId);
-    // console.log("token: ", token);
 
     //Verify User
     jwt.verify(token, JWT_SECRET, (err, decodedUserId) => {
@@ -535,7 +493,7 @@ function findRoomsWithHostId(req, res) {
           });
         })
         .catch((err) => {
-          console.log("err: ", err.message);
+          console.log("findRoomsWithHostId | err: ", err);
           res
             .status(400)
             .json({ error: err.message, message: "Internal error" });
@@ -547,6 +505,7 @@ function findRoomsWithHostId(req, res) {
 }
 
 function findRoomsWithPlayerId(req, res) {
+  console.log("Entering findRoomsWithPlayerId");
   try {
     let playerId = req.params.playerId;
     let { token } = req.body;
@@ -559,13 +518,10 @@ function findRoomsWithPlayerId(req, res) {
       }
       db.findRoomOfAPlayer(playerId)
         .then(async (roomsArray) => {
-          console.log("roomsArray , ", roomsArray);
           let roomsIdArray = [];
           for (let i = 0; i < roomsArray.length; i++) {
             roomsIdArray.push(roomsArray[i].ticketRoomId);
           }
-
-          console.log("Player rooms IdArray : ", roomsIdArray);
 
           //Find room details of each room in roomsIdArray
           let playerRooms = await findRoomDetailsFunction(roomsIdArray);
@@ -578,7 +534,7 @@ function findRoomsWithPlayerId(req, res) {
           });
         })
         .catch((err) => {
-          console.log("err: ", err.message);
+          console.log("findRoomsWithPlayerId | err: ", err);
           res
             .status(400)
             .json({ error: err.message, message: "Internal error" });
@@ -590,6 +546,7 @@ function findRoomsWithPlayerId(req, res) {
 }
 
 async function findRoomsWithUserId(req, res) {
+  console.log("Entering findRoomsWithUserId");
   try {
     let userId = req.params.userId;
     // let { type } = req.body;
@@ -602,7 +559,7 @@ async function findRoomsWithUserId(req, res) {
       hostRooms = await db.findRoomsOfAHost(userId);
       console.log("hosts:: ", hostRooms);
     } catch (err) {
-      console.log("err: ", err.message);
+      console.log("findRoomsWithUserId | err: ", err);
       return res
         .status(400)
         .json({ error: err.message, message: "Internal error" });
@@ -630,7 +587,7 @@ async function findRoomsWithUserId(req, res) {
         commonRooms: commonRooms,
       });
     } catch (err) {
-      console.log("err: ", err.message);
+      console.log("err: ", err);
       return res
         .status(400)
         .json({ error: err.message, message: "Internal error" });
@@ -642,16 +599,17 @@ async function findRoomsWithUserId(req, res) {
 
 //Utility function to find all tickets in a room.
 async function findAllTicketsInRoom(roomId) {
+  console.log("Entering findAllTicketsInRoom");
   try {
     let data = await db.getTicketsOfARoom(roomId);
     return data.Items;
   } catch (err) {
-    // console.log("error:", err.message);
     throw err;
   }
 }
 
 async function findRoomDetailsFunction(roomsIdArray) {
+  console.log("Entering findRoomDetailsFunction");
   try {
     //Find room details of each room in roomsIdArray
     let playerRooms = [];
@@ -662,32 +620,14 @@ async function findRoomDetailsFunction(roomsIdArray) {
           playerRooms.push(roomObj);
         })
         .catch((err) => {
-          console.log("err: ", error.message);
+          console.log("findRoomDetailsFunction | err: ", err);
         });
     }
-    // console.log("playerRooms4r: ", playerRooms);
     return playerRooms;
   } catch (err) {
     next(err);
   }
 }
 
-//Utility function to find all the players in room
-// function findAllPlayersInARoomFunction(roomId) {
-//   db.findAllPlayersInRoom(roomId)
-//     .then((playersArray) => {
-//       console.log("arr in fun ", playersArray);
-//       // return new Promise((resolve) => resolve(playersArray));
-//       // resolve(playersArray);
-//       return playersArray;
-//     })
-//     .catch((err) => {
-//       // reject(err);
-//       // return new Promise((reject) => reject(err));
-//       throw err;
-//     });
-// }
-
-// findAllPlayersInARoomFunction("42470912-1d57-47c8-b891-b00a0e02287a");
 
 module.exports = router;

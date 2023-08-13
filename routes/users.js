@@ -1,9 +1,10 @@
+require('dotenv').config();
 const express = require("express");
 const router = express.Router();
 const db = require("../data/db.js");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const JWT_SECRET = "etwqcyig@#$e723trgfcjd323bfug*&^$3%261757vb";
+const JWT_SECRET = process.env.JWT_SECRET;
 
 //get all the tickets of particular user.
 router.get("/:userId/tickets", getTickets);
@@ -31,15 +32,13 @@ function getTickets(req, res, next) {
             ticketsArray.push(JSON.parse(obj.ticketObj));
           });
 
-          // console.log("tickets are : ", ticketsArray);
-
           res.status(200).json({
             msg: "Tickets found.",
             ticketsArray: ticketsArray,
           });
         })
         .catch((err) => {
-          console.log("error: ", err.message);
+          console.log("getTickets | error: ", err.message);
           res.status(400).json({
             error: err.message,
             message: "Internal error: RoomId not found",

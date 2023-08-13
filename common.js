@@ -1,9 +1,9 @@
+require('dotenv').config();
 const PubNub = require("pubnub");
-
 const pubnub = new PubNub({
-	publishKey: "pub-c-48fb12a1-3d27-4dd4-a77c-bfc386c79e2a",
-	subscribeKey: "sub-c-2add770f-19e7-46dc-a7f5-2774470a9a06",
-	uuid: "myUniqueUUID"
+	publishKey: process.env.PUBLISH_KEY,
+	subscribeKey: process.env.SUBSCRIBE_KEY,
+	uuid: process.env.UUID
 });
 
 async function publishMsg(channel, msg) {

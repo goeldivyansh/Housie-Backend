@@ -1,13 +1,14 @@
+require('dotenv').config()
 const express = require("express");
 const auth = require("./routes/auth.js")
 const cors = require("cors")
 const rooms = require("./routes/rooms.js")
 const users = require("./routes/users.js")
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 
 app.use(express.json());
-app.use(cors({ origin: "http://localhost:4200" }));
+app.use(cors({ origin: process.env.CLIENT_URL }));
 
 //API Routes for user login and signup
 app.use('/auth',auth);

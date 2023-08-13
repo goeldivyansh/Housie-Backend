@@ -1,4 +1,7 @@
-//java -D"java.library.path"=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -sharedDb
+/**
+ * Command to run dynamo db server on local
+ * java -D"java.library.path"=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -sharedDb
+ */
 
 const AWS = require("aws-sdk");
 const globals = require("../globals");
@@ -266,32 +269,6 @@ const updateBoard = async (boardInp, roomIdInp, hostIdInp) => {
     });
   });
 };
-
-
-//Query operation return true if present
-// const getBoard = async (userId) => {
-//   var isPresent = false;
-//   console.log("In function checkUser", userId);
-//   const params = {
-//     TableName: globals.table.room,
-//     KeyConditionExpression: "userId = :uid",
-//     ExpressionAttributeValues: {
-//       ":uid": userId,
-//     },
-//   };
-
-//   await ddb.query(params, function (err, data) {
-//     if (err) {
-//       console.log("Error", err);
-//     } else {
-//       console.log("data.Items: ", data.Items);
-//       if (data.Items.length !== 0) isPresent = true;
-//       console.log("isPresent db : ", isPresent);
-//     }
-//   });
-//   console.log("isPresent after db : ", isPresent);
-//   return isPresent;
-// };
 
 const addPlayerInRoom = async (hostIdInp, playerIdInp, roomIdInp) => {
   var params = {
@@ -669,7 +646,6 @@ module.exports = {
   findRoomOfAPlayer,
   addOrUpdateOrResetBoard,
   getRoomDetails,
-  // findAllTicketInRoom,
   updateUsers,
   deleteUsers
 };
