@@ -1,0 +1,138 @@
+const express = require("express");
+const router = express.Router();
+const db = require("../data/db.js");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const JWT_SECRET = "etwqcyig@#$e723trgfcjd323bfug*&^$3%261757vb";
+// const redis = require("redis");
+// const REDIS_PORT = 6379;
+
+//Create and connect redis client
+// const client = redis.createClient(REDIS_PORT);
+// client.on("error", (err) => {
+//   console.log("Error " + err);
+// });
+
+//Signup API
+router.post("/signup", signup);
+
+//Login API
+router.post("/login", login);
+
+async function signup(req, res, next) {
+  //Extract fields from body
+  console.log("Entring signup");
+  try {
+    console.log("req obj : ", req);
+    const { userId, password, name } = req.body;
+
+    //Encrypt the Password
+    let encryptedPassword = await bcrypt.hash(password, 10);
+    try {
+      //Create the user in redis
+      // await client.set(userId, JSON.stringify({userId, encryptedPassword, name }) );
+      
+      //Create the user in DB
+      await db.createUser(userId, name, encryptedPassword);
+      res.status(200).json({ userId: userId, name: name });
+    } catch (err) {
+      console.log("err2", err);
+      res
+        .status(400)
+        .json({ error: err.message, message: "userId already exists" });
+    }
+  } catch (err) {
+    console.log("err3", err);
+    next(err);
+  }
+}
+
+async function login(req, res, next) {
+  console.log("Entring Login");
+  try {
+    //Extract fields from body
+    const { userId, password } = req.body;
+
+    //check userId exists in db or not
+    let userObj = await db.findUser(userId);
+
+    if (userObj) {
+      //Check password is correct or not
+      let isValid = await bcrypt.compare(password, userObj.password);
+      if (isValid) {
+        //Get token
+        const token = await jwt.sign(userObj.userId, JWT_SECRET);
+        res.status(200).json({
+          userId: userObj.userId,
+          name: userObj.name,
+          token: token,
+        });
+      } else {
+        res.status(401).json({ message: "Incorrect Password" });
+      }
+    } else {
+      res.status(400).json({ error: "userId does not exists" });
+    }
+  } catch (err) {
+    next(err);
+  }
+}
+
+// async function signup(req, res) {
+//   //Extract fields from body
+//   const { userId, password, name } = req.body;
+
+//   //Encrypt the Password
+//   let encryptedPassword;
+//   try {
+//     encryptedPassword = await bcrypt.hash(password, 10);
+//   } catch (error) {
+//     return res
+//       .status(500)
+//       .json({ error: err.message, message: "Internal error" });
+//   }
+
+//   //Create the user
+//   db.createUser(userId, name, encryptedPassword)
+//     .then(() => {
+//       res.status(200).json({ userId: userId, name: name });
+//     })
+//     .catch((err) => {
+//       res
+//         .status(400)
+//         .json({ error: err.message, message: "userId already exists" });
+//     });
+// }
+
+// function login(req, res) {
+//   //Extract fields from body
+//   const { userId, password } = req.body;
+
+//   //check userId exists in db or not
+//   db.findUser(userId)
+//     .then((userObj) => {
+//       if (userObj) {
+//         //Check password is correct or not
+//         bcrypt.compare(password, userObj.password, function (err, isValid) {
+//           if (isValid) {
+//             const token = jwt.sign(userObj.userId, JWT_SECRET);
+//             res.status(200).json({
+//               userId: userObj.userId,
+//               name: userObj.name,
+//               token: token,
+//             });
+//           } else {
+//             res.status(401).json({ message: "Incorrect Password" });
+//           }
+//         });
+//       } else {
+//         res.status(400).json({ error: "userId does not exists" });
+//       }
+//     })
+//     .catch((error) => {
+//       console.log(error);
+//       res.status(500).json({ error: error.message, message: "Internal Error" });
+//     });
+// }
+
+module.exports = router;
